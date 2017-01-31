@@ -5,4 +5,4 @@
 *Made of my genuine blood!*
 *What would we ne without borders?*
 
-My attempt at an efficientl way to create SVG based borders around HTML elements.
+My attempt at an efficient way to create SVG based borders around HTML elements.
