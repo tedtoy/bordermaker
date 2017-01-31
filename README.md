@@ -3,6 +3,6 @@
 *Than he began building again.*
 *My bricks, O my genuine bricks*
 *Made of my genuine blood!*
-*What would we ne without borders?*
+*What would we be without borders?* -Carol Rumens 
 
 My attempt at an efficient way to create SVG based borders around HTML elements.
