@@ -40,7 +40,7 @@ function EdgeBuilder() {
     };
 
     /**
-     *  Slightly naive padding function
+     *  Simple padding function
      */
     this.addPadding = (item) => {
         var paddedItem = {
@@ -170,19 +170,15 @@ function EdgeBuilder() {
     };
 
     /**
-     *  Dry, generic method to make a path for a side/edge
+     *  Generic method to make a path for a side/edge
      *  in O(N) complexity.
      *  @constructor 
      *  @param {array} hash - A sparse array of x or y coordinates
      *                        of sparse arrays of x or y items.
      */
     this.makePath = (hash, edge, flat=true) => {
-        console.log("making path with options: ")
-        console.log(this.options)
         var log = this.log;
-
         var path = [];
-
         var keys = Object.keys(hash);
         var keysLength = keys.length;
 
@@ -190,19 +186,17 @@ function EdgeBuilder() {
         var {isAbove, isBelow, isAfter, isBefore} = this.comparators[edge];
         var flatten = this.flatten(edge);
         var max = this.max[edge];
-        if (edge === 'right' || edge === 'top') {
-            keys.reverse();
-        }
 
         var prevItem = null;
         var aboveItems = [];
+        if (edge === 'right' || edge === 'top') {
+            keys.reverse();
+        }        
 
         // For each coordinate in the hash:
         for (var k = 0; k < keysLength; k = k + 1) {
-            // console.log("k: " +k)
-            // console.log(prevItem)
             var key = keys[k];
-            var items = hash[key];  // sparse array by Y
+            var items = hash[key]; 
             var itemKeys = Object.keys(items);
             var maxItemKey = max(itemKeys);
             var item = items[maxItemKey];
@@ -241,7 +235,6 @@ function EdgeBuilder() {
 
 
             // If middle iteration:
-            // if ((0 < k) && (k < (keysLength - 1))) {
             if ((0 < k) && (k < (keysLength))) {
 
                 // Handle cases where we are within previous x.
@@ -251,7 +244,7 @@ function EdgeBuilder() {
                         // We are Below:
                         //   |||||
                         //      ||||| <--
-                        //
+                        
                         // Easy, go to current item.
                         path.push([item[leftX], prevItem[bottomY], item.id]);
                         path.push([item[leftX], item[bottomY], item.id]);
@@ -269,7 +262,7 @@ function EdgeBuilder() {
                         // We are Above; Add (all items here) to Above:
                         //      ||||||  <--
                         //   ||||||             
-                        //           
+                        
                         items.forEach(function(itemA){
                             aboveItems[itemA[bottomY]] = itemA;
                             log("        ++ adding " + itemA.id + " to above items");
@@ -361,9 +354,6 @@ function EdgeBuilder() {
                     path.push([item[leftX], item[bottomY], item.id]);
                     path.push([item[rightX], item[bottomY], item.id]);
                 } else {
-
-
-                    // ----
                     var aboveKeys = Object.keys(aboveItems);
                     var aboveLen = aboveKeys.length;
                     if (aboveLen > 0) {
@@ -378,7 +368,6 @@ function EdgeBuilder() {
                             var _travCompareTo = 0;
                             var _travIncrement = -1;
                         }
-
                         // console.log(" --- traversing up above items in final item ----")
                         // console.log("     previous item: " + prevItem.id + " x1: " + prevItem[leftX] + " x2: " + prevItem[rightX])
                         for (var a = _travA; _travCompare(a, _travCompareTo); a = a + _travIncrement) {
@@ -408,7 +397,6 @@ function EdgeBuilder() {
                         } 
                     }
                     // ----
-
 
 
                     // Make sure we're After...
@@ -453,9 +441,7 @@ function EdgeBuilder() {
 
         if (['left', 'right'].includes(edge)) {
             path = this.reversePathCoordinates(path);
-        }        
-
-        // window.PATH = path;
+        }
         
         return path;
     }
@@ -514,7 +500,6 @@ function EdgeBuilder() {
 
 
     this.draw = (items, edges=['bottom', 'right', 'top', 'left'], options={}) => {
-
         if (edges[0] === 'all' ) {
             edges = ['bottom', 'right', 'top', 'left'];
         }
@@ -527,7 +512,6 @@ function EdgeBuilder() {
     };
 
     this.drawPath = (items, edges=['bottom', 'right', 'top', 'left']) => {
-
         if (edges[0] === 'all' ) {
             edges = ['bottom', 'right', 'top', 'left'];
         }
@@ -538,10 +522,8 @@ function EdgeBuilder() {
     };
 
     /**
-     *  Sparse array of objects by their top-most y coordinates
-     *
-     *  Note: This is a sparse array of coordinates which 
-     *        in turn point to arrays of items.
+     *  Sparse array of sparse arrays by their 'left-most' 
+     *  and 'bottom-most' coordinates relative to their respective sides.
      *
      */
     this.makeHashes = (items, addPadding=true) => {
@@ -556,12 +538,9 @@ function EdgeBuilder() {
             if (addPadding) {
                 item = that.addPadding(item);
             }
-            console.log(i)
             if (that.options.endMargin > 0) {
-                if (i === 0){
-                    console.log(item.leftX)
+                if (i === 0) {
                     item.leftX = item.leftX + that.options.endMargin;
-                    console.log(item.leftX)
                 }
                 if (i === (items.length - 1)) {
                     item.rightX = item.rightX - that.options.endMargin;
@@ -689,7 +668,6 @@ function EdgeBuilder() {
 
         // For each side:
         for (var o = 0; o < order.length; o = o + 1) {
-        // for (var o = 0; o < 2; o = o + 1) {
             var edge = order[o];
             var coords = paths[edge];
             var oo = (o < 3) ? (o + 1) : 0;
@@ -1014,7 +992,7 @@ function EdgeBuilder() {
         var reverseXAxis = (edge === 'right' || edge === 'top') ? true : false;
         var reverseYAxis = (edge === 'top' || edge === 'left') ? true : false;
         var max = (reverseYAxis) ? Math.max : Math.min;
-        var isAbove = this.comparators[edge]['isAbove']; // for bottom: (y1 < y2)
+        var isAbove = this.comparators[edge]['isAbove'];
 
         return (path) => {
             
@@ -1050,14 +1028,12 @@ function EdgeBuilder() {
                             // Adjust Y for ALL pairs:
                             // Caveat: Dont go farther back than last up
                             var all = (reverseXAxis) 
-                                // ? allPairs.slice((coord[x]+1), (coord[x] + WIDTH))
-                                // : allPairs.slice((coord[x] - WIDTH), (coord[x]));
                                 ? allPairs.slice((coord[x]+1), (startingX + 1))
                                 : allPairs.slice((startingX -1), (coord[x]));
 
                             all.forEach((pair) => {
+                                // Only adjust if lower:
                                 if (isAbove(path[pair.p1][y], adjustedY)) {
-                                    // Only adjust if lower:
                                     path[pair.p1][y] = adjustedY;
                                     path[pair.p2][y] = adjustedY;
                                 }
@@ -1081,50 +1057,6 @@ function EdgeBuilder() {
             });
         }
     }
-
-
-    /**
-     *  Buffer Track
-     *  Increase the dimensions of every rectangle by 'buffer'.
-     */
-    this.bufferTrack = function(track, buffer) {
-        var bufferedTrack = [];
-        var len = track.length;
-
-        track.forEach(function(xposition, x){
-            xposition.forEach(function(item, ti){
-                var leftX = (ti < buffer) ? item['leftX'] : item['leftX'] - buffer;
-                var rightX = (ti == len - 1) ? item['rightX'] : item['rightX'] + buffer;
-                var newItem = {'leftX': leftX,
-                               'rightX': rightX,
-                               'topY': item['topY'] - buffer,
-                               'bottomY': item['bottomY'] + buffer,
-                               'item': item.item,
-                               'width': item.width,
-                               'height': item.height,
-                               'id': item['id']}
-                if (bufferedTrack[leftX] === undefined) {
-                    bufferedTrack[leftX] = [];
-                }
-                bufferedTrack[leftX].push(newItem);
-            });
-        });
-        return bufferedTrack;
-    };
-
-
-    /**
-     *  Buffer Row
-     */
-    this.bufferRow = function(row, buffer) {
-        var that = this;
-        var bufferedRow = [];
-        row.forEach(function(track) {
-            var bufferedTrack = that.bufferTrack(track, buffer);
-            bufferedRow.push(bufferedTrack);
-        });
-        return bufferedRow;        
-    };
 
 }
 
