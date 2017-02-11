@@ -14,11 +14,26 @@
  */
 
 
-
-
 var PADDING_DEFAULT = 14;
 var FLATTEN_WIDTH_SIDES = 70;
 var FLATTEN_WIDTH_BOTTOMS = 20;
+
+function outerHeight(el) {
+  var height = el.offsetHeight;
+  var style = el.currentStyle || getComputedStyle(el);
+  height += parseInt(style.marginTop) + parseInt(style.marginBottom);
+  return height;
+}
+function outerWidth(el) {
+  var width = el.offsetWidth;
+  var style = el.currentStyle || getComputedStyle(el);
+  width += parseInt(style.marginLeft) + parseInt(style.marginRight);
+  return width;
+}
+function innerWidth(el) {
+  var width = el.offsetWidth;
+  return width;
+}
 
 
 function EdgeBuilder() {
@@ -39,8 +54,12 @@ function EdgeBuilder() {
         "logVerbose": false,
     };
 
+
+    this.parentElement = null;
+    this.itemElements = null;
+
     /**
-     *  Simple padding function
+     *  Slightly naive padding function
      */
     this.addPadding = (item) => {
         var paddedItem = {
@@ -170,7 +189,7 @@ function EdgeBuilder() {
     };
 
     /**
-     *  Generic method to make a path for a side/edge
+     *  Dry, generic method to make a path for a side/edge
      *  in O(N) complexity.
      *  @constructor 
      *  @param {array} hash - A sparse array of x or y coordinates
@@ -178,7 +197,9 @@ function EdgeBuilder() {
      */
     this.makePath = (hash, edge, flat=true) => {
         var log = this.log;
+
         var path = [];
+
         var keys = Object.keys(hash);
         var keysLength = keys.length;
 
@@ -186,17 +207,21 @@ function EdgeBuilder() {
         var {isAbove, isBelow, isAfter, isBefore} = this.comparators[edge];
         var flatten = this.flatten(edge);
         var max = this.max[edge];
+        if (edge === 'right' || edge === 'top') {
+            keys.reverse();
+        }
 
         var prevItem = null;
         var aboveItems = [];
-        if (edge === 'right' || edge === 'top') {
-            keys.reverse();
-        }        
+
+        log("constructing edge: " +edge)
 
         // For each coordinate in the hash:
         for (var k = 0; k < keysLength; k = k + 1) {
+            // console.log("k: " +k)
+            // console.log(prevItem)
             var key = keys[k];
-            var items = hash[key]; 
+            var items = hash[key];  // sparse array by Y
             var itemKeys = Object.keys(items);
             var maxItemKey = max(itemKeys);
             var item = items[maxItemKey];
@@ -210,20 +235,38 @@ function EdgeBuilder() {
                 var nextItem = nextItems[maxNextItemKey];
             }
 
+            log( " * coordinate " + (k+1) + " of " + (keysLength) +" xy key: " + key + " --  item: " +item.id );
+
             // If first iteration, add first path
             if (k === 0) {
                 path.push([item[leftX], item[bottomY], item.id]);
                 prevItem = item;
+                log("        [+ first item path] item: " + item.id)
+                // console.log("very first path: ")
+                // console.log([item[leftX], item[bottomY], item.id])
 
                 // Add any other items to Above:
-                items.forEach(function(itemA){
-                    if (itemA.id !== item.id){
+                items.forEach(function(itemA) {
+                    if (itemA.id !== item.id) {
+                        log("        [adding to above items] item: " + itemA.id)
                         aboveItems[itemA[bottomY]] = itemA;
                     }
                 });
+
+                // var dot = document.createElementNS("http://www.w3.org/2000/svg", 'circle');
+                // dot.setAttribute("cx", item[leftX]);
+                // dot.setAttribute("cy", item[topY]);
+                // dot.setAttribute("r", "4");
+                // dot.setAttribute("fill", "transparent");
+                // dot.setAttribute("stroke", "blue");
+                // dot.setAttribute("stroke-width", "1");
+                // dot.setAttribute("stroke-opacity", "0.8");
+                // var svg = 
+                // ListCarta.Layout.layoutSvg.appendChild(dot);
+
+
             }
 
-            log( k + "/" + keysLength+" ... coord: " + key + " --  item: " +item.id + "  prev: "+ prevItem.id  + " - " + itemKeys.length + " hashed items ")
             
             // DEBUG!
             // short circuit:
@@ -232,7 +275,6 @@ function EdgeBuilder() {
             // }
             // item.item.style.backgroundColor = '#ccc';
             // item.item.style.opacity = 0.7;
-
 
             // If middle iteration:
             if ((0 < k) && (k < (keysLength))) {
@@ -244,8 +286,9 @@ function EdgeBuilder() {
                         // We are Below:
                         //   |||||
                         //      ||||| <--
-                        
+                        //
                         // Easy, go to current item.
+                        log("        [+ 2 paths] Moving down to item " + item.id)
                         path.push([item[leftX], prevItem[bottomY], item.id]);
                         path.push([item[leftX], item[bottomY], item.id]);
                         // Add any other items to Above:
@@ -262,10 +305,10 @@ function EdgeBuilder() {
                         // We are Above; Add (all items here) to Above:
                         //      ||||||  <--
                         //   ||||||             
-                        
+                        //           
                         items.forEach(function(itemA){
                             aboveItems[itemA[bottomY]] = itemA;
-                            log("        ++ adding " + itemA.id + " to above items");
+                            log("        [adding to above items] " + itemA.id + "  ");
                         });
 
                     }
@@ -279,41 +322,30 @@ function EdgeBuilder() {
                     // If above items, iterate and go to each as long as we are within this items X.
                     var aboveKeys = Object.keys(aboveItems);
                     var aboveLen = aboveKeys.length;
-                    log( "     Attempt to traverse up...  above items count: " + aboveLen)
-
+                    // log( "        Attempt to traverse up...  above items count: " + aboveLen)
                     if (aboveLen > 0) {
-
-
-                        if (['left', 'top'].includes(edge)) {
-                            var _travA = 0;
-                            var _travCompare = isBelow;
-                            var _travCompareTo = aboveLen;
-                            var _travIncrement = 1;
-                        } else {
-                            var _travA = (aboveLen - 1);
-                            var _travCompare = isBelow;
-                            var _travCompareTo = 0;
-                            var _travIncrement = -1;
-                        }                            
-
-
-                        for (var a = _travA; _travCompare(a, _travCompareTo); a = a + _travIncrement) {
-                            
-                            var key = aboveKeys[a];
+                        for (var a = 0; a < aboveLen; a = a +1) {
+                            // If bottom or right, traverse above items from max to min (reverse order)
+                            if (['bottom', 'right'].includes(edge)) {
+                                var a2 = aboveLen - a - 1;
+                            } else {
+                                var a2 = a;
+                            }
+                            var key = aboveKeys[a2];
                             var aboveItem = aboveItems[key];
 
-                            log("      ^ traversing up above id: " + aboveItem.id)
+                            log("        [^ traversing up] to id: " + aboveItem.id)
 
                             // Break if we are after current item:
                             if (isAfter(prevItem[rightX], item[leftX])) {
-                                log("     #   breaking ...   prev id:  " + prevItem.id + " rx: "
+                                log("        # breaking ...   prev id:  " + prevItem.id + " rx: "
                                  + prevItem[rightX] + " item.id " + item.id + " leftx " + item[leftX])
                                 break;
                             }
 
                             // Go to this above item (if its right x is greater than previous above X)
                             if (isAfter(aboveItem[rightX], prevItem[rightX])) {
-                                log("               [Moving up] to above item " + aboveItem.id)
+                                log("        [Moving up] to above item " + aboveItem.id)
                                 path.push([prevItem[rightX], prevItem[bottomY], item.id]);
                                 path.push([prevItem[rightX], aboveItem[bottomY], item.id]);
                                 
@@ -321,64 +353,104 @@ function EdgeBuilder() {
                                 prevItem = aboveItem;
 
                             } else {
-                                log("      [skip] item: "+ aboveItem.id + " rightx: " + aboveItem[rightX] 
+                                log("        [skip] item: "+ aboveItem.id + " rightx: " + aboveItem[rightX] 
                                     + " prev item: " + prevItem.id + " rightx: " + prevItem[rightX])
                                 continue;
                             }
                         } 
-                    }
+                    } // Above.
                     
                     // Handle current item - if we are within previous x and above; Add to above items
                     if (isBefore(item[leftX], prevItem[rightX]) && isAbove(item[bottomY], prevItem[bottomY])) {
+                        log("        [add to above items] Item " + item.id + " is within previous, and above")
                         aboveItems[item[bottomY]] = item;
                     } else {
                         // For all other situations (after previous x, or below) just path to item.
                         if (isAbove(item[bottomY], prevItem[bottomY])) {
+                            log("        [+ 2 paths] Item " + item.id + " is After previous, and (above)")
                             path.push([prevItem[rightX], prevItem[bottomY], item.id]);
                             path.push([prevItem[rightX], item[bottomY], item.id]);
                         } else {
                             // We are below:
+                            log("        [+ 2 paths] Item " + item.id + " is After previous, and (below)")
                             path.push([item[leftX], prevItem[bottomY], item.id]);
                             path.push([item[leftX], item[bottomY], item.id]);
                         }
                         prevItem = item;
                     }
                 }
-            }
+            } // end middle iteration
 
-            //  - - - - - - - - - - -  HANDLE LAST ITEM  - - - - - - - - - - - - -
+            //  - - -  HANDLE LAST ITEM  - - - 
             if (k === (keysLength - 1)){
                 if (isBelow(item[bottomY], prevItem[bottomY])) {
                     // If we are below, we are the last item. Close path:
+                    log("        [+ 3 paths] Last Item is below previous item. ")
                     path.push([item[leftX], prevItem[bottomY], item.id]);
                     path.push([item[leftX], item[bottomY], item.id]);
                     path.push([item[rightX], item[bottomY], item.id]);
                 } else {
+
+
+                    // If above items, iterate and go to each as long as we are within this items X.
                     var aboveKeys = Object.keys(aboveItems);
                     var aboveLen = aboveKeys.length;
+                    // log( "        Attempt to traverse up...  above items count: " + aboveLen)
                     if (aboveLen > 0) {
-                        if (['left', 'top'].includes(edge)) {
-                            var _travA = 0;
-                            var _travCompare = isBelow;
-                            var _travCompareTo = aboveLen;
-                            var _travIncrement = 1;
-                        } else {
-                            var _travA = (aboveLen - 1);
-                            var _travCompare = isBelow;
-                            var _travCompareTo = 0;
-                            var _travIncrement = -1;
-                        }
-                        // console.log(" --- traversing up above items in final item ----")
-                        // console.log("     previous item: " + prevItem.id + " x1: " + prevItem[leftX] + " x2: " + prevItem[rightX])
-                        for (var a = _travA; _travCompare(a, _travCompareTo); a = a + _travIncrement) {
-                            log("                   ^ traversing up ")
-                            var key = aboveKeys[a];
+                        for (var a = 0; a < aboveLen; a = a +1) {
+                            // If bottom or right, traverse above items from max to min (reverse order)
+                            if (['bottom', 'right'].includes(edge)) {
+                                var a2 = aboveLen - a - 1;
+                            } else {
+                                var a2 = a;
+                            }
+                            var key = aboveKeys[a2];
                             var aboveItem = aboveItems[key];
-                            // console.log("     above item: " + aboveItem.id + " x1: " + aboveItem[leftX] + " x2: " + aboveItem[rightX])
+
+                            log("        [^ traversing up] to id: " + aboveItem.id)
+
+                            // Break if we are after current item:
+                            if (isAfter(prevItem[rightX], item[leftX])) {
+                                log("        # breaking ...   prev id:  " + prevItem.id + " rx: "
+                                 + prevItem[rightX] + " item.id " + item.id + " leftx " + item[leftX])
+                                break;
+                            }
 
                             // Go to this above item (if its right x is greater than previous above X)
                             if (isAfter(aboveItem[rightX], prevItem[rightX])) {
-                                log("               [Moving up] (last iteration) to above item " + aboveItem.id)
+                                log("        [Moving up] to above item " + aboveItem.id)
+                                path.push([prevItem[rightX], prevItem[bottomY], item.id]);
+                                path.push([prevItem[rightX], aboveItem[bottomY], item.id]);
+                                
+                                // Set previous to last above:
+                                prevItem = aboveItem;
+
+                            } else {
+                                log("        [skip] item: "+ aboveItem.id + " rightx: " + aboveItem[rightX] 
+                                    + " prev item: " + prevItem.id + " rightx: " + prevItem[rightX])
+                                continue;
+                            }
+                        } 
+                    } // Above.
+
+                    // ----
+                    var aboveKeys = Object.keys(aboveItems);
+                    var aboveLen = aboveKeys.length;
+                    if (aboveLen > 0) {
+
+                       for (var a = 0; a < aboveLen; a = a +1) {
+                            // If bottom or right, traverse above items from max to min (reverse order)
+                            if (['bottom', 'right'].includes(edge)) {
+                                var a2 = aboveLen - a - 1;
+                            } else {
+                                var a2 = a;
+                            }
+                            var key = aboveKeys[a2];
+                            var aboveItem = aboveItems[key];
+
+                            // Go to this above item (if its right x is greater than previous above X)
+                            if (isAfter(aboveItem[rightX], prevItem[rightX])) {
+                                log("               [+ 2 paths] (last iteration) Moving to above item " + aboveItem.id)
                                 path.push([prevItem[rightX], prevItem[bottomY], item.id]);
                                 path.push([prevItem[rightX], aboveItem[bottomY], item.id]);
                                 
@@ -399,8 +471,10 @@ function EdgeBuilder() {
                     // ----
 
 
+
                     // Make sure we're After...
                     if (!isBefore(item[rightX], prevItem[rightX])) {
+                        log("        [+ 3 paths] Last Item is Above and After")
                         path.push([prevItem[rightX], prevItem[bottomY], item.id]);
                         path.push([prevItem[rightX], item[bottomY], item.id]);
                         path.push([item[rightX], item[bottomY], item.id]);
@@ -408,7 +482,7 @@ function EdgeBuilder() {
                         // Maybe we are above, and before. In which case just place the last 
                         // path on the prev item.
                         if (isAbove(item[bottomY], prevItem[bottomY])) {
-                            log("   Case where we are before and above.")
+                        log("        [+ 1 paths] Last Item is Above and Before")
                             path.push([prevItem[rightX], prevItem[bottomY], item.id]);
                         }
                     }
@@ -436,12 +510,16 @@ function EdgeBuilder() {
 
         if (this.options.flatten) {
             flatten(path);
+            path = this.dedupPath(path); 
         }
-        path = this.dedupPath(path); 
 
         if (['left', 'right'].includes(edge)) {
             path = this.reversePathCoordinates(path);
-        }
+        }        
+
+        console.log("edge path: ")
+        console.log(path)
+        // window.PATH = path;
         
         return path;
     }
@@ -499,19 +577,60 @@ function EdgeBuilder() {
     };
 
 
-    this.draw = (items, edges=['bottom', 'right', 'top', 'left'], options={}) => {
+    this.drawItems = (items, edges=['bottom', 'right', 'top', 'left'], options={}) => {
+
         if (edges[0] === 'all' ) {
             edges = ['bottom', 'right', 'top', 'left'];
         }
-
         Object.assign(this.options, options);
 
         var hashes = this.makeHashes(items);
+        console.log("draw items:")
+        console.log(items)
+        console.log(hashes)
 
         return this.drawPathFromHash(hashes, edges);
     };
 
+    this.draw = (parentElement, childClass, edges=['bottom', 'right', 'top', 'left'], options={}) => {
+
+
+        if (parentElement) {
+            var elements = parentElement.getElementsByClassName(childClass)
+        } else {
+            var elements = document.getElementsByClassName(childClass);
+        }
+
+        this.parentElement = parentElement;
+        this.testItems = parentElement.getElementsByClassName("test-items")[0];
+        this.parentSVG = this.testItems.getElementsByTagName("svg")[0];
+        this.itemElements = elements;
+
+        var items = [];
+        for (var e = 0; e < elements.length; e = e + 1) {
+            var item = elements[e];
+            var itemWidth = outerWidth(item);
+            var itemHeight = outerHeight(item);
+            // if ( !item.id) {
+            //     console.log(" no id")
+            //     console.log(item.id)
+                var item_id = "item_id__" + e
+            // } else {
+            //     item_id = item.id
+            // }
+            var position = {'leftX': item.offsetLeft,
+                            'rightX': item.offsetLeft + itemWidth,
+                            'topY': item.offsetTop,
+                            'bottomY': item.offsetTop + itemHeight,
+                            'id': item_id};
+            items.push(position)
+        }
+
+        return this.drawItems(items, edges, options);
+    };
+
     this.drawPath = (items, edges=['bottom', 'right', 'top', 'left']) => {
+
         if (edges[0] === 'all' ) {
             edges = ['bottom', 'right', 'top', 'left'];
         }
@@ -522,8 +641,10 @@ function EdgeBuilder() {
     };
 
     /**
-     *  Sparse array of sparse arrays by their 'left-most' 
-     *  and 'bottom-most' coordinates relative to their respective sides.
+     *  Sparse array of objects by their top-most y coordinates
+     *
+     *  Note: This is a sparse array of coordinates which 
+     *        in turn point to arrays of items.
      *
      */
     this.makeHashes = (items, addPadding=true) => {
@@ -538,9 +659,12 @@ function EdgeBuilder() {
             if (addPadding) {
                 item = that.addPadding(item);
             }
+            // console.log(i)
             if (that.options.endMargin > 0) {
-                if (i === 0) {
+                if (i === 0){
+                    // console.log(item.leftX)
                     item.leftX = item.leftX + that.options.endMargin;
+                    // console.log(item.leftX)
                 }
                 if (i === (items.length - 1)) {
                     item.rightX = item.rightX - that.options.endMargin;
@@ -568,6 +692,7 @@ function EdgeBuilder() {
             }
             leftHash[item.topY][item.leftX] = item;
         });
+
         hash['bottom'] = bottomHash;
         hash['right'] = rightHash;
         hash['top'] = topHash;
@@ -596,7 +721,7 @@ function EdgeBuilder() {
         // svgPath.setAttribute("stroke-opacity", 0.2);
         // svgPath.setAttribute("stroke-dasharray", "2,2");
         // svgPath.setAttribute("stroke-width", 2);
-        // ListCarta.Layout.layoutSvg.appendChild(svgPath); 
+        // ListCarta.Layout.layoutSvg.appendChild(svgPath);
 
         // // Debugging. Original not flat path.
         // var pathStringUnflat = this.makePathStringFromObject(unflatPaths);
@@ -625,9 +750,22 @@ function EdgeBuilder() {
                 var hash = hashes[edge];
                 var newPath = that.makePath(hash, edge);
                 pathSides[edge] = newPath;
+
+
+                // Draw a test border:
+                if (edge == 'bottom') {
+
+                }
+
             });            
             var stitchedPaths = this.stitchPaths(pathSides);
+            console.log("stitched paths: ")
+            console.log(stitchedPaths)
             var pathString = this.pathToString(stitchedPaths);
+            console.log(pathString)
+
+
+
         }
         svgPath.setAttribute("d", pathString);
         svgPath.setAttribute("fill", this.options.fill);
@@ -668,6 +806,7 @@ function EdgeBuilder() {
 
         // For each side:
         for (var o = 0; o < order.length; o = o + 1) {
+        // for (var o = 0; o < 2; o = o + 1) {
             var edge = order[o];
             var coords = paths[edge];
             var oo = (o < 3) ? (o + 1) : 0;
@@ -905,7 +1044,6 @@ function EdgeBuilder() {
 
 
     /**
-     *
      *  Makes a path string from an object of path sides
      *
      */
@@ -992,10 +1130,10 @@ function EdgeBuilder() {
         var reverseXAxis = (edge === 'right' || edge === 'top') ? true : false;
         var reverseYAxis = (edge === 'top' || edge === 'left') ? true : false;
         var max = (reverseYAxis) ? Math.max : Math.min;
-        var isAbove = this.comparators[edge]['isAbove'];
+        var isAbove = this.comparators[edge]['isAbove']; // for bottom: (y1 < y2)
 
         return (path) => {
-            
+
             var prevCoord = null;
 
             var allPairs = [];     // Pairs of coordinates.
@@ -1028,12 +1166,14 @@ function EdgeBuilder() {
                             // Adjust Y for ALL pairs:
                             // Caveat: Dont go farther back than last up
                             var all = (reverseXAxis) 
+                                // ? allPairs.slice((coord[x]+1), (coord[x] + WIDTH))
+                                // : allPairs.slice((coord[x] - WIDTH), (coord[x]));
                                 ? allPairs.slice((coord[x]+1), (startingX + 1))
                                 : allPairs.slice((startingX -1), (coord[x]));
 
                             all.forEach((pair) => {
-                                // Only adjust if lower:
                                 if (isAbove(path[pair.p1][y], adjustedY)) {
+                                    // Only adjust if lower:
                                     path[pair.p1][y] = adjustedY;
                                     path[pair.p2][y] = adjustedY;
                                 }
